@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Survey | PulsePlay</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0d0d0d;
+      --accent:  #aaff00;
+      --surface: #181818;
+      --border:  #2a2a2a;
+      --text:    #ffffff;
+      --muted:   #666;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #app {
+      height: 100vh;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* ── Progress bar ─────────────────────────────────── */
+    #prog-wrap {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--border);
+      z-index: 20;
+      display: none;
+    }
+
+    #prog-fill {
+      height: 100%;
+      background: var(--accent);
+      transition: width 0.5s cubic-bezier(.4,0,.2,1);
+    }
+
+    /* ── Screens ──────────────────────────────────────── */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(1.5rem, 6vw, 3rem);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .35s ease, transform .35s ease;
+    }
+
+    .screen.is-active {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    /* transition utility classes */
+    .fx-no-transition { transition: none !important; }
+    .fx-from-right    { transform: translateX(72px); }
+    .fx-from-left     { transform: translateX(-72px); }
+    .fx-to-left       { opacity: 0 !important; transform: translateX(-72px); transition: opacity .3s ease, transform .3s ease !important; }
+    .fx-to-right      { opacity: 0 !important; transform: translateX(72px);  transition: opacity .3s ease, transform .3s ease !important; }
+
+    /* ── Welcome ──────────────────────────────────────── */
+    .logo {
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 2.75rem;
+    }
+
+    .welcome-title {
+      font-size: clamp(1.9rem, 5vw, 3.25rem);
+      font-weight: 700;
+      text-align: center;
+      line-height: 1.15;
+      max-width: 560px;
+      margin-bottom: .9rem;
+    }
+
+    .welcome-meta {
+      color: var(--muted);
+      font-size: .9rem;
+      margin-bottom: 2rem;
+    }
+
+    .points-pill {
+      display: none;
+      align-items: center;
+      gap: .4rem;
+      padding: .45rem 1.1rem;
+      border-radius: 999px;
+      background: rgba(170,255,0,.09);
+      border: 1px solid rgba(170,255,0,.22);
+      color: var(--accent);
+      font-size: .85rem;
+      font-weight: 600;
+      margin-bottom: 2.25rem;
+    }
+
+    /* ── Question ─────────────────────────────────────── */
+    #q-wrap {
+      max-width: 640px;
+      width: 100%;
+      transition: opacity .22s ease, transform .22s ease;
+    }
+
+    #q-meta {
+      font-size: .72rem;
+      font-weight: 600;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1.1rem;
+    }
+
+    #q-text {
+      font-size: clamp(1.3rem, 3vw, 1.9rem);
+      font-weight: 600;
+      line-height: 1.3;
+      margin-bottom: 1.6rem;
+    }
+
+    #q-body { margin-bottom: 1.6rem; }
+
+    /* Choices */
+    .choices { display: flex; flex-direction: column; gap: .55rem; }
+
+    .choice-btn {
+      display: flex;
+      align-items: center;
+      gap: .9rem;
+      width: 100%;
+      padding: .8rem 1.1rem;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: .92rem;
+      text-align: left;
+      cursor: pointer;
+      transition: border-color .15s, background .15s, color .15s;
+    }
+
+    .choice-btn:hover { border-color: rgba(170,255,0,.32); background: rgba(170,255,0,.04); }
+
+    .choice-btn.sel {
+      border-color: var(--accent);
+      background: rgba(170,255,0,.07);
+      color: var(--accent);
+    }
+
+    .choice-key {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      width: 24px; height: 24px;
+      border-radius: 5px;
+      background: var(--border);
+      color: var(--muted);
+      font-size: .68rem;
+      font-weight: 700;
+      transition: background .15s, color .15s;
+    }
+
+    .choice-btn.sel .choice-key { background: var(--accent); color: #000; }
+
+    /* Rating */
+    .rating-row { display: flex; gap: .55rem; flex-wrap: wrap; }
+
+    .rating-btn {
+      width: 52px; height: 52px;
+      border-radius: 10px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color .15s, background .15s, color .15s;
+    }
+
+    .rating-btn:hover { border-color: rgba(170,255,0,.32); }
+
+    .rating-btn.sel { border-color: var(--accent); background: var(--accent); color: #000; }
+
+    .rating-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: .45rem;
+      font-size: .72rem;
+      color: var(--muted);
+    }
+
+    /* Text area */
+    textarea.q-ta {
+      width: 100%;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: .85rem 1.1rem;
+      color: var(--text);
+      font-family: inherit;
+      font-size: .92rem;
+      resize: vertical;
+      outline: none;
+      min-height: 96px;
+      transition: border-color .15s;
+    }
+
+    textarea.q-ta:focus { border-color: var(--accent); }
+    textarea.q-ta::placeholder { color: var(--muted); }
+
+    /* Nav row */
+    .q-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .back-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: .88rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: .35rem;
+      padding: .4rem 0;
+      transition: color .15s;
+    }
+
+    .back-btn:hover { color: var(--text); }
+    .back-btn[disabled] { visibility: hidden; pointer-events: none; }
+
+    /* ── Buttons ──────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: .72rem 1.6rem;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: .92rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: opacity .15s, transform .1s;
+      white-space: nowrap;
+    }
+
+    .btn:active { transform: scale(.97); }
+
+    .btn-primary { background: var(--accent); color: #000; min-width: 110px; }
+    .btn-primary:hover { opacity: .88; }
+    .btn-primary[disabled] { opacity: .35; cursor: not-allowed; pointer-events: none; }
+
+    .btn-outline {
+      background: transparent;
+      border: 1.5px solid var(--border);
+      color: var(--text);
+    }
+    .btn-outline:hover { border-color: #555; }
+
+    /* ── Result screens ───────────────────────────────── */
+    .result-icon {
+      width: 70px; height: 70px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.6rem;
+    }
+
+    .result-title {
+      font-size: clamp(1.5rem, 4vw, 2.1rem);
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: .7rem;
+    }
+
+    .result-sub {
+      color: var(--muted);
+      text-align: center;
+      font-size: .92rem;
+      max-width: 340px;
+      line-height: 1.65;
+      margin-bottom: 2rem;
+    }
+
+    /* ── Checkmark animation ──────────────────────────── */
+    @keyframes icon-pop {
+      0%   { transform: scale(.55); opacity: 0; }
+      65%  { transform: scale(1.1); }
+      100% { transform: scale(1);   opacity: 1; }
+    }
+
+    @keyframes path-draw {
+      to { stroke-dashoffset: 0; }
+    }
+
+    #check-circle { animation: icon-pop .5s cubic-bezier(.34,1.56,.64,1) .05s both; }
+
+    #check-path {
+      stroke-dasharray: 48;
+      stroke-dashoffset: 48;
+    }
+
+    #check-path.run { animation: path-draw .38s ease .45s forwards; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <div id="prog-wrap"><div id="prog-fill" style="width:0%"></div></div>
+
+  <!-- ── Welcome ── -->
+  <div class="screen is-active" id="screen-welcome">
+    <div class="logo">PulsePlay</div>
+    <h1 class="welcome-title">Quick Shopping Survey</h1>
+    <p class="welcome-meta">Takes about 5 minutes</p>
+    <div class="points-pill" id="points-pill">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M7 1.5 8.6 5l3.9.55-2.8 2.7.65 3.85L7 10.2 3.65 12.1 4.3 8.25 1.5 5.55 5.4 5z" fill="currentColor"/>
+      </svg>
+      <span id="points-text"></span>
+    </div>
+    <button class="btn btn-primary" id="start-btn">Start Survey →</button>
+  </div>
+
+  <!-- ── Question ── -->
+  <div class="screen" id="screen-question">
+    <div id="q-wrap">
+      <div id="q-meta"></div>
+      <div id="q-text"></div>
+      <div id="q-body"></div>
+      <div class="q-nav">
+        <button class="back-btn" id="back-btn" disabled>← Back</button>
+        <button class="btn btn-primary" id="next-btn" disabled>Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Thank you ── -->
+  <div class="screen" id="screen-thankyou">
+    <div class="result-icon" style="background:rgba(170,255,0,.08);border:1.5px solid rgba(170,255,0,.22)">
+      <svg id="check-circle" width="38" height="38" viewBox="0 0 38 38" fill="none">
+        <circle cx="19" cy="19" r="17" stroke="#aaff00" stroke-width="1.5" opacity=".35"/>
+        <path id="check-path" d="M11 19.5 16.5 25 27 13" stroke="#aaff00" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <h2 class="result-title">All done!</h2>
+    <p class="result-sub">Your points have been added to PulsePlay. Thank you for your feedback.</p>
+    <button class="btn btn-primary" onclick="window.history.back()">Return to PulsePlay</button>
+  </div>
+
+  <!-- ── Sorry ── -->
+  <div class="screen" id="screen-sorry">
+    <div class="result-icon" style="background:rgba(255,65,65,.07);border:1.5px solid rgba(255,65,65,.22)">
+      <svg width="38" height="38" viewBox="0 0 38 38" fill="none">
+        <circle cx="19" cy="19" r="17" stroke="#ff4141" stroke-width="1.5" opacity=".35"/>
+        <path d="M13 13 25 25M25 13 13 25" stroke="#ff4141" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <h2 class="result-title">Not a match</h2>
+    <p class="result-sub">You don't match this survey's criteria. More surveys are on the way!</p>
+    <button class="btn btn-outline" onclick="window.history.back()">Return to PulsePlay</button>
+  </div>
+
+</div>
+<script>
+(() => {
+  const params  = new URLSearchParams(window.location.search);
+  const ppToken = params.get('pp_token') || '';
+  const points  = params.get('points')   || '';
+  const API_BASE = 'http://localhost:8000';
+  const HOOK     = `${API_BASE}/api/v1/webhook/s2s`;
+
+  let currentQ       = 0;
+  let submitted      = false;
+  let questionStartTime = Date.now();
+  const answers = {};
+
+  // ── Questions ──────────────────────────────────────────────
+  const QUESTIONS = [
+    {
+      id: 'age',
+      text: 'How old are you?',
+      type: 'single',
+      opts: ['Under 18', '18–34', '35–54', '55+'],
+      screener: v => v === 'Under 18',
+    },
+    {
+      id: 'frequency',
+      text: 'How often do you shop online?',
+      type: 'single',
+      opts: ['Every day', 'A few times a week', 'Once a week', 'A few times a month', 'Rarely / never'],
+    },
+    {
+      id: 'brands',
+      text: 'Which of these brands do you recognise?',
+      type: 'multi',
+      opts: ['Amazon', 'ASOS', 'Zalando', 'H&M', 'Zara', 'Nike', 'None of these'],
+    },
+    {
+      id: 'rating',
+      text: 'Rate your overall online shopping experience',
+      type: 'rating',
+    },
+    {
+      id: 'improve',
+      text: 'What would improve your online shopping experience?',
+      type: 'text',
+      placeholder: 'Share your thoughts…',
+    },
+  ];
+
+  // ── Event tracking ────────────────────────────────────────
+  async function sha256(value) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(value)));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function trackEvent(token, eventType, questionIndex = null, timeMs = null, answerValue = null) {
+    if (!token) return;
+    const payload = { token, event_type: eventType, question_index: questionIndex, time_on_screen_ms: timeMs };
+    if (answerValue !== null) {
+      sha256(String(answerValue)).then(hash => {
+        navigator.sendBeacon(`${API_BASE}/api/v1/track/event`,
+          new Blob([JSON.stringify({ ...payload, answer_hash: hash })], { type: 'application/json' }));
+      });
+    } else {
+      navigator.sendBeacon(`${API_BASE}/api/v1/track/event`,
+        new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+    }
+  }
+
+  function onQuestionMount(index) {
+    questionStartTime = Date.now();
+    trackEvent(ppToken, 'question_viewed', index);
+  }
+
+  function onAnswer(index, value) {
+    const timeSpent = Date.now() - questionStartTime;
+    trackEvent(ppToken, 'question_answered', index, timeSpent, value);
+  }
+
+  function onBack(index) {
+    trackEvent(ppToken, 'back_navigation', index);
+  }
+
+  // ── Webhook ────────────────────────────────────────────────
+  function postWebhook(status) {
+    if (!ppToken) return Promise.resolve();
+    return fetch(HOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: ppToken, status }),
+    }).catch(() => {});
+  }
+
+  window.addEventListener('beforeunload', () => {
+    if (submitted || !ppToken) return;
+    navigator.sendBeacon(HOOK,
+      new Blob([JSON.stringify({ token: ppToken, status: 'dropped' })],
+               { type: 'application/json' }));
+  });
+
+  // ── Screen transitions ─────────────────────────────────────
+  function goTo(id, dir) {
+    const cur = document.querySelector('.screen.is-active');
+    const nxt = document.getElementById('screen-' + id);
+    if (!nxt || nxt === cur) return;
+
+    // Exit current
+    if (cur) {
+      cur.classList.remove('is-active');
+      cur.classList.add(dir === 'fwd' ? 'fx-to-left' : 'fx-to-right');
+      setTimeout(() => cur.classList.remove('fx-to-left', 'fx-to-right'), 380);
+    }
+
+    // Set start position without transition, then animate in
+    nxt.classList.add('fx-no-transition', dir === 'fwd' ? 'fx-from-right' : 'fx-from-left');
+    void nxt.offsetWidth;
+    nxt.classList.remove('fx-no-transition', 'fx-from-right', 'fx-from-left');
+    nxt.classList.add('is-active');
+
+    const pw = document.getElementById('prog-wrap');
+    pw.style.display = id === 'question' ? 'block' : 'none';
+
+    if (id === 'thankyou') {
+      // Restart check animation each time
+      const p = document.getElementById('check-path');
+      p.classList.remove('run');
+      void p.offsetWidth;
+      requestAnimationFrame(() => p.classList.add('run'));
+    }
+  }
+
+  function setProgress(ratio) {
+    document.getElementById('prog-fill').style.width = (ratio * 100) + '%';
+  }
+
+  // ── Question render ────────────────────────────────────────
+  function renderQ(idx, dir, instant) {
+    const q    = QUESTIONS[idx];
+    const wrap = document.getElementById('q-wrap');
+
+    const paint = () => {
+      document.getElementById('q-meta').textContent =
+        'Question ' + (idx + 1) + ' of ' + QUESTIONS.length;
+      document.getElementById('q-text').textContent = q.text;
+
+      const body    = document.getElementById('q-body');
+      const nextBtn = document.getElementById('next-btn');
+      const backBtn = document.getElementById('back-btn');
+      body.innerHTML = '';
+
+      backBtn.disabled    = idx === 0;
+      nextBtn.textContent = idx === QUESTIONS.length - 1 ? 'Submit ✓' : 'Next →';
+
+      if (q.type === 'single') {
+        const list = mkEl('div', 'choices');
+        q.opts.forEach((opt, i) => {
+          const btn = mkEl('button', 'choice-btn' + (answers[q.id] === opt ? ' sel' : ''));
+          btn.innerHTML = `<span class="choice-key">${chr(i)}</span>${esc(opt)}`;
+          btn.addEventListener('click', () => {
+            list.querySelectorAll('.choice-btn').forEach(b => b.classList.remove('sel'));
+            btn.classList.add('sel');
+            answers[q.id] = opt;
+            nextBtn.disabled = false;
+          });
+          list.appendChild(btn);
+        });
+        nextBtn.disabled = !answers[q.id];
+        body.appendChild(list);
+
+      } else if (q.type === 'multi') {
+        if (!Array.isArray(answers[q.id])) answers[q.id] = [];
+        const list = mkEl('div', 'choices');
+        q.opts.forEach((opt, i) => {
+          const btn = mkEl('button', 'choice-btn' + (answers[q.id].includes(opt) ? ' sel' : ''));
+          btn.innerHTML = `<span class="choice-key">${chr(i)}</span>${esc(opt)}`;
+          btn.addEventListener('click', () => {
+            const arr = answers[q.id];
+            const ix  = arr.indexOf(opt);
+            if (ix >= 0) { arr.splice(ix, 1); btn.classList.remove('sel'); }
+            else          { arr.push(opt);    btn.classList.add('sel'); }
+            nextBtn.disabled = arr.length === 0;
+          });
+          list.appendChild(btn);
+        });
+        nextBtn.disabled = answers[q.id].length === 0;
+        body.appendChild(list);
+
+      } else if (q.type === 'rating') {
+        const row = mkEl('div', 'rating-row');
+        for (let r = 1; r <= 5; r++) {
+          const btn = mkEl('button', 'rating-btn' + (answers[q.id] === r ? ' sel' : ''));
+          btn.textContent = r;
+          btn.addEventListener('click', () => {
+            row.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('sel'));
+            btn.classList.add('sel');
+            answers[q.id] = r;
+            nextBtn.disabled = false;
+          });
+          row.appendChild(btn);
+        }
+        const lbl = mkEl('div', 'rating-labels');
+        lbl.innerHTML = '<span>Poor</span><span>Excellent</span>';
+        nextBtn.disabled = answers[q.id] == null;
+        body.appendChild(row);
+        body.appendChild(lbl);
+
+      } else if (q.type === 'text') {
+        const ta = mkEl('textarea', 'q-ta');
+        ta.placeholder = q.placeholder || 'Your answer…';
+        ta.rows        = 4;
+        ta.value       = answers[q.id] || '';
+        ta.addEventListener('input', () => { answers[q.id] = ta.value; });
+        nextBtn.disabled = false; // text is optional
+        body.appendChild(ta);
+      }
+
+      setProgress(idx / QUESTIONS.length);
+      onQuestionMount(idx);
+
+      // Animate in
+      wrap.style.transition = 'none';
+      wrap.style.opacity    = '0';
+      wrap.style.transform  = instant
+        ? 'translateX(0)'
+        : (dir === 'fwd' ? 'translateX(28px)' : 'translateX(-28px)');
+      void wrap.offsetWidth;
+      wrap.style.transition = '';
+      wrap.style.opacity    = '1';
+      wrap.style.transform  = 'translateX(0)';
+    };
+
+    if (!instant) {
+      // Slide out first
+      wrap.style.opacity   = '0';
+      wrap.style.transform = dir === 'fwd' ? 'translateX(-28px)' : 'translateX(28px)';
+      setTimeout(paint, 220);
+    } else {
+      paint();
+    }
+  }
+
+  // ── Navigation ─────────────────────────────────────────────
+  async function advance() {
+    const q       = QUESTIONS[currentQ];
+    const nextBtn = document.getElementById('next-btn');
+    nextBtn.disabled = true;
+
+    onAnswer(currentQ, answers[q.id] ?? null);
+
+    if (q.screener && q.screener(answers[q.id])) {
+      submitted = true;
+      await postWebhook('terminated');
+      goTo('sorry', 'fwd');
+      return;
+    }
+
+    if (currentQ < QUESTIONS.length - 1) {
+      currentQ++;
+      renderQ(currentQ, 'fwd', false);
+    } else {
+      submitted = true;
+      setProgress(1);
+      await postWebhook('completed');
+      goTo('thankyou', 'fwd');
+    }
+  }
+
+  function goBack() {
+    if (currentQ > 0) {
+      onBack(currentQ);
+      currentQ--;
+      renderQ(currentQ, 'bwd', false);
+      document.getElementById('next-btn').disabled =
+        QUESTIONS[currentQ].type === 'text'
+          ? false
+          : !hasAnswer(currentQ);
+    }
+  }
+
+  function hasAnswer(idx) {
+    const q = QUESTIONS[idx];
+    if (q.type === 'multi') return Array.isArray(answers[q.id]) && answers[q.id].length > 0;
+    if (q.type === 'rating') return answers[q.id] != null;
+    return !!answers[q.id];
+  }
+
+  // ── Helpers ────────────────────────────────────────────────
+  function mkEl(tag, cls) {
+    const el = document.createElement(tag);
+    el.className = cls;
+    return el;
+  }
+
+  function chr(i) { return String.fromCharCode(65 + i); }
+
+  function esc(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── Init ───────────────────────────────────────────────────
+  if (points) {
+    const pill = document.getElementById('points-pill');
+    pill.style.display = 'inline-flex';
+    document.getElementById('points-text').textContent = 'Earn ' + points + ' points';
+  }
+
+  document.getElementById('start-btn').addEventListener('click', () => {
+    currentQ = 0;
+    goTo('question', 'fwd');
+    renderQ(0, 'fwd', true); // instant=true: no slide-out on first load
+  });
+
+  document.getElementById('next-btn').addEventListener('click', advance);
+  document.getElementById('back-btn').addEventListener('click', goBack);
+
+  document.addEventListener('keydown', e => {
+    if (!document.getElementById('screen-question').classList.contains('is-active')) return;
+    const nb = document.getElementById('next-btn');
+    if (e.key === 'Enter' && !nb.disabled) advance();
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    trackEvent(ppToken, document.hidden ? 'page_hidden' : 'page_visible', currentQ);
+  });
+})();
+</script>
+</body>
+</html>
