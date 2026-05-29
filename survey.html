@@ -394,7 +394,7 @@
   const params  = new URLSearchParams(window.location.search);
   const ppToken = params.get('pp_token') || '';
   const points  = params.get('points')   || '';
-  const API_BASE = 'http://localhost:8000';
+  const API_BASE = `https://pulseplaydummybackend.onrender.com`;
   const HOOK     = `${API_BASE}/api/v1/webhook/s2s`;
 
   let currentQ       = 0;
